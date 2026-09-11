@@ -11,12 +11,28 @@ from app.models import IngestionRun, IngestionStatus, StagingRecord, UploadedFil
 from app.modules.m4.column_map import MappingResult, resolve_columns
 from app.modules.m4.fields import FIELDS
 from app.modules.m4.validation import (
+    ACCEPTED_SUFFIXES,
     CsvFormatError,
     ParsedRow,
     errors_to_json,
-    read_csv,
+    read_tabular,
     validate_rows,
 )
+
+
+_CONTENT_TYPES = {
+    ".csv": "text/csv",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+    ".xls": "application/vnd.ms-excel",
+}
+
+
+def _content_type(filename: str) -> str:
+    for suffix, mime in _CONTENT_TYPES.items():
+        if filename.lower().endswith(suffix):
+            return mime
+    return "application/octet-stream"
 
 
 class IngestionRejected(Exception):
@@ -93,13 +109,13 @@ def ingest_csv(
             "Split the export into smaller files and upload them as separate runs.",
         )
 
-    frame = read_csv(content, filename)  # raises CsvFormatError
+    frame = read_tabular(content, filename)  # raises CsvFormatError
     mapping = resolve_columns(list(frame.columns))
 
     uploaded = UploadedFile(
         original_filename=filename,
         content=content,
-        content_type="text/csv",
+        content_type=_content_type(filename),
         size_bytes=len(content),
         sha256=hashlib.sha256(content).hexdigest(),
         uploaded_by=actor,
@@ -141,7 +157,7 @@ def ingest_csv(
 def restage(db: Session, run: IngestionRun, overrides: dict[str, str]) -> IngestionOutcome:
     """Re-run validation after the user corrects the column mapping."""
     uploaded = db.get(UploadedFile, run.uploaded_file_id)
-    frame = read_csv(uploaded.content, run.source_filename)
+    frame = read_tabular(uploaded.content, run.source_filename)
     mapping = resolve_columns(list(frame.columns), overrides=overrides)
 
     run.column_mapping = mapping.to_json()["mapping"]
@@ -190,6 +206,7 @@ def _stage(db: Session, run: IngestionRun, rows: list[ParsedRow]) -> None:
 
 
 __all__ = [
+    "ACCEPTED_SUFFIXES",
     "CsvFormatError",
     "IngestionOutcome",
     "IngestionRejected",

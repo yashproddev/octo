@@ -7,3 +7,7 @@ sqlalchemy>=2.0,<3.0
 psycopg[binary]>=3.2,<4.0
 pandas>=2.2,<3.0
 python-multipart>=0.0.12
+# Users export from Tally/SAP into Excel and upload the workbook directly;
+# refusing it would send them back to re-save as CSV by hand.
+openpyxl>=3.1,<4.0
+xlrd>=2.0,<3.0

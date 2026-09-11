@@ -65,9 +65,15 @@ export default function Upload() {
         }`}
       >
         <p className="text-sm font-medium text-gray-900">
-          {busy ? 'Processing…' : 'Drop a CSV here'}
+          {busy ? 'Processing…' : 'Drop a spreadsheet here'}
         </p>
-        <p className="mt-1 text-sm text-gray-500">Maximum 4.5 MB per upload.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Excel (.xlsx, .xlsm, .xls) or CSV, up to 4.5 MB.
+        </p>
+        <p className="mx-auto mt-1 max-w-md text-xs text-gray-400">
+          Export straight from Tally or SAP — title rows above the headings and extra
+          sheets are handled, so there is no need to tidy the file first.
+        </p>
         <div className="mt-4 flex justify-center">
           <Button onClick={() => inputRef.current?.click()} disabled={busy}>
             Choose file
@@ -76,7 +82,7 @@ export default function Upload() {
         <input
           ref={inputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx,.xlsm,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0]

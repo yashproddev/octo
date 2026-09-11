@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import IngestionRun, StagingRecord, UploadedFile
+from app.modules.m4.validation import read_tabular
 from app.modules.m4.ingestion import (
+    ACCEPTED_SUFFIXES,
     CsvFormatError,
     IngestionRejected,
     build_template_csv,
@@ -60,12 +62,12 @@ def upload(
     db: Session = Depends(get_db),
     who: str = Depends(actor),
 ) -> dict:
-    if not file.filename or not file.filename.lower().endswith(".csv"):
+    if not file.filename or not file.filename.lower().endswith(ACCEPTED_SUFFIXES):
         raise HTTPException(
             status_code=422,
             detail={
-                "message": "Only .csv files are accepted.",
-                "hint": "Export the sheet as CSV and upload that file.",
+                "message": f"\"{file.filename or 'That file'}\" is not a spreadsheet we can read.",
+                "hint": "Upload a .csv, .xlsx, .xlsm or .xls file.",
                 "expected_format": expected_format(),
             },
         )
@@ -125,10 +127,18 @@ def get_run(run_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
     if not run:
         raise HTTPException(404, detail={"message": "Ingestion run not found."})
     source = db.get(UploadedFile, run.uploaded_file_id)
-    headers = list(source.content.decode("utf-8-sig", errors="replace").splitlines()[0].split(",")) if source else []
+    # Re-read through the same reader that ingested it. Decoding the bytes as
+    # text would work for CSV and produce nonsense for a binary workbook.
+    columns: list[str] = []
+    if source:
+        try:
+            columns = [str(c).strip() for c in read_tabular(source.content, run.source_filename).columns]
+        except CsvFormatError:
+            columns = []
+
     return {
         "run": _run_payload(run),
-        "source_columns": [h.strip() for h in headers],
+        "source_columns": columns,
         "expected_format": expected_format(),
     }
 

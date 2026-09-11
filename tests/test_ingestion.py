@@ -1,3 +1,4 @@
+import io
 import uuid
 from decimal import Decimal
 from pathlib import Path
@@ -277,3 +278,80 @@ class TestBulkDecisions:
             # The machine's verdict survives the batch, exactly as for a single decision.
             assert r.system_status == ResultStatus.MISMATCH
             assert r.current_status == ResultStatus.AUTO_CLOSED
+
+
+class TestExcelUploads:
+    """People export from Tally and SAP into Excel and upload the workbook as-is.
+    Refusing it, or demanding a tidy sheet starting at A1, sends them back to do
+    manual cleanup — which is the work this tool exists to remove."""
+
+    def _clean_workbook(self) -> bytes:
+        import pandas as pd
+        buf = io.BytesIO()
+        pd.read_csv(SAMPLES / "exceptions.csv").to_excel(buf, index=False)
+        return buf.getvalue()
+
+    def _messy_workbook(self) -> bytes:
+        """A cover sheet, two title rows, a blank spacer, then aliased headers."""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        cover = wb.active
+        cover.title = "Cover"
+        cover["A1"] = "Vendor Reconciliation Export"
+
+        ws = wb.create_sheet("Data")
+        ws["A1"] = "ACME MANUFACTURING PVT LTD"
+        ws["A2"] = "Purchase Register — Jan 2026"
+        headers = ["PO No.", "Supplier Name", "Material Description", "Ordered Qty",
+                   "Received Qty", "Billed Qty", "PO Rate", "Invoice Rate",
+                   "Invoice No", "GST Amount", "Order Date"]
+        for col, head in enumerate(headers, start=1):
+            ws.cell(row=4, column=col, value=head)
+        data = [
+            ["PO-8001", "Acme Industrial Ltd", "Ball Bearing 6205",
+             100, 100, 100, 450, 450, "INV-9001", 8100, "2026-01-12"],
+            ["PO-8002", "Bharat Fasteners", "Hex Bolt M12",
+             500, 495, 500, 12.5, 14, "INV-9002", 1260, "2026-01-14"],
+        ]
+        for r, row in enumerate(data, start=5):
+            for c, value in enumerate(row, start=1):
+                ws.cell(row=r, column=c, value=value)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+
+    def test_clean_xlsx_is_accepted(self, db):
+        outcome = ingest_csv(db, content=self._clean_workbook(), filename="export.xlsx",
+                             actor="tester", max_bytes=MAX)
+        assert outcome.run.status == "STAGED"
+        assert outcome.run.row_count == 11
+
+    def test_header_below_title_rows_is_found(self, db):
+        outcome = ingest_csv(db, content=self._messy_workbook(), filename="tally.xlsx",
+                             actor="tester", max_bytes=MAX)
+        assert outcome.run.status == "STAGED"
+        assert outcome.run.row_count == 2
+        assert outcome.mapping.mapping["po_number"].source_column == "PO No."
+
+    def test_cover_sheet_is_skipped_for_the_sheet_with_data(self, db):
+        outcome = ingest_csv(db, content=self._messy_workbook(), filename="tally.xlsx",
+                             actor="tester", max_bytes=MAX)
+        # The first sheet holds only a title; the reader must not settle for it.
+        assert outcome.run.valid_row_count == 2
+
+    def test_excel_numbers_do_not_arrive_as_floats(self, db):
+        """Excel stores 100 as 100.0; a quantity rendered as "100.0" would read
+        as dirty data to anyone checking the figures against their own sheet."""
+        outcome = ingest_csv(db, content=self._messy_workbook(), filename="tally.xlsx",
+                             actor="tester", max_bytes=MAX)
+        assert outcome.rows[0].mapped["po_quantity"] == "100"
+
+    def test_excel_dates_lose_their_midnight_component(self, db):
+        outcome = ingest_csv(db, content=self._clean_workbook(), filename="export.xlsx",
+                             actor="tester", max_bytes=MAX)
+        assert outcome.rows[0].mapped["po_date"] == "2026-01-12"
+
+    def test_unsupported_extension_names_what_is_accepted(self, db):
+        from app.modules.m4.validation import ACCEPTED_SUFFIXES
+        assert ".xlsx" in ACCEPTED_SUFFIXES and ".csv" in ACCEPTED_SUFFIXES
