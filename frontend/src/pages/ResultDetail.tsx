@@ -125,6 +125,14 @@ export default function ResultDetail() {
             </span>
           </div>
         )}
+        {risk < 0 && (
+          <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1">
+            <span className="text-xs text-teal-800">Billed below entitlement</span>
+            <span className="text-sm font-semibold text-teal-800">
+              ₹{money(String(Math.abs(risk)))}
+            </span>
+          </div>
+        )}
         {detail.rule_version && (
           <span className="ml-auto text-xs text-gray-400">Rules {detail.rule_version}</span>
         )}

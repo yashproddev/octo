@@ -294,13 +294,23 @@ export default function Results() {
                       <Td align="right">{num(r.invoice_quantity)}</Td>
                       <Td align="right">{num(r.po_unit_price)}</Td>
                       <Td align="right">{num(r.invoice_unit_price)}</Td>
+                      {/* Three genuinely different things, which must not all
+                          render as a dash: cannot be valued, we would overpay,
+                          we were billed below entitlement. */}
                       <Td align="right">
                         {r.exposure === null ? (
                           <span className="text-gray-300" title="Too incomplete to value">
-                            —
+                            n/a
                           </span>
                         ) : risk > 0 ? (
                           <span className="font-medium text-amber-700">₹{compactMoney(r.exposure)}</span>
+                        ) : risk < 0 ? (
+                          <span
+                            className="text-teal-700"
+                            title="Billed below entitlement — in your favour"
+                          >
+                            −₹{compactMoney(r.exposure)}
+                          </span>
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
