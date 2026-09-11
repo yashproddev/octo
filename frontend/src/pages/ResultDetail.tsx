@@ -202,7 +202,10 @@ export default function ResultDetail() {
                       <span className="text-xs text-gray-400">{formatDateTime(d.decided_at)}</span>
                     </div>
                     <p className="mt-0.5 text-xs text-gray-500">
-                      {d.actor} · {d.from_status} → {d.to_status}
+                      {d.actor} ·{' '}
+                      {d.from_status === d.to_status
+                        ? `remains ${d.to_status}`
+                        : `${d.from_status} → ${d.to_status}`}
                     </p>
                     {d.reason && <p className="mt-1 text-sm text-gray-700">{d.reason}</p>}
                   </li>

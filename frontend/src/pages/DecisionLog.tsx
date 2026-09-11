@@ -95,7 +95,13 @@ export default function DecisionLog() {
                     </Td>
                     <Td>{d.system_status && <StatusPill status={d.system_status} />}</Td>
                     <Td>
-                      <StatusPill status={d.to_status} />
+                      {d.from_status === d.to_status ? (
+                        <span className="text-xs text-gray-500">
+                          stays <StatusPill status={d.to_status} />
+                        </span>
+                      ) : (
+                        <StatusPill status={d.to_status} />
+                      )}
                     </Td>
                     <Td muted>{d.reason || '—'}</Td>
                     <Td muted>{d.rule_version}</Td>
