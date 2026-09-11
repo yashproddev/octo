@@ -1,6 +1,9 @@
+import csv
+import io
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -28,6 +31,7 @@ def _run_payload(run: ReconciliationRun) -> dict:
         "tolerances": run.tolerances,
         "status": run.status,
         "status_counts": run.status_counts or {},
+        "total_exposure": str(run.total_exposure) if run.total_exposure is not None else None,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
     }
@@ -234,8 +238,13 @@ def overview(db: Session = Depends(get_db)) -> dict:
         )
     ).scalar_one()
 
+    open_exposure = db.execute(
+        select(func.coalesce(func.sum(ReconciliationRun.total_exposure), 0))
+    ).scalar_one()
+
     return {
         "latest_run": _run_payload(latest) if latest else None,
+        "open_exposure": str(open_exposure),
         "totals": {
             "ingestion_runs": db.execute(select(func.count()).select_from(IngestionRun)).scalar_one(),
             "reconciliation_runs": db.execute(
@@ -256,3 +265,58 @@ def overview(db: Session = Depends(get_db)) -> dict:
             for r in ingestion_runs
         ],
     }
+
+
+@router.get("/reconciliation/runs/{run_id}/export.csv", response_class=PlainTextResponse)
+def export_results(
+    run_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    status: str | None = None,
+) -> PlainTextResponse:
+    """Results as a file, optionally filtered to one status.
+
+    Exceptions get worked in a spreadsheet and chased over email; a queue that
+    cannot leave the browser does not fit how this job is actually done.
+    """
+    stmt = (
+        select(ReconciliationResult)
+        .where(ReconciliationResult.reconciliation_run_id == run_id)
+        .options(selectinload(ReconciliationResult.decisions))
+    )
+    if status:
+        stmt = stmt.where(ReconciliationResult.current_status == status)
+
+    results = db.execute(stmt).scalars().all()
+    results.sort(key=lambda r: (r.snapshot or {}).get("row_number") or 0)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "row", "po_number", "vendor", "item", "invoice_number",
+        "po_quantity", "grn_quantity", "invoice_quantity",
+        "po_unit_price", "invoice_unit_price", "tax",
+        "system_status", "current_status", "exposure",
+        "failed_checks", "explanation",
+    ])
+    for r in results:
+        s = r.snapshot or {}
+        failed = [
+            _RULE_SHORT.get(f.get("rule_id"), f.get("rule_id"))
+            for f in (r.findings or [])
+            if not f.get("passed") and not f.get("skipped")
+        ]
+        writer.writerow([
+            s.get("row_number", ""), s.get("po_number", ""), s.get("vendor", ""),
+            s.get("item", ""), s.get("invoice_number", ""),
+            s.get("po_quantity", ""), s.get("grn_quantity", ""), s.get("invoice_quantity", ""),
+            s.get("po_unit_price", ""), s.get("invoice_unit_price", ""), s.get("tax", ""),
+            r.system_status, r.current_status, s.get("exposure", ""),
+            "; ".join(failed), r.explanation or "",
+        ])
+
+    label = f"-{status.lower()}" if status else ""
+    return PlainTextResponse(
+        buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="m4-results{label}.csv"'},
+    )

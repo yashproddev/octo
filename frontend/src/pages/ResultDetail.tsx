@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, api } from '../api/client'
-import type { Finding, ResultDetail as Detail } from '../types'
+import type { Finding, ResultDetail as Detail, ResultRow } from '../types'
 import {
   Button,
   Card,
@@ -12,6 +12,7 @@ import {
   Td,
   Th,
   formatDateTime,
+  money,
   num,
 } from '../components/ui'
 
@@ -28,6 +29,7 @@ export default function ResultDetail() {
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [queue, setQueue] = useState<ResultRow[]>([])
 
   const load = () =>
     api.get<Detail>(`/reconciliation/results/${resultId}`).then(setDetail).catch((e) => setError(String(e)))
@@ -36,10 +38,23 @@ export default function ResultDetail() {
     void load()
   }, [resultId])
 
+  // The open exceptions, so a reviewer can walk the queue without returning to
+  // the list between every decision.
+  useEffect(() => {
+    if (!runId) return
+    api.get<{ results: ResultRow[] }>(`/reconciliation/runs/${runId}/results`)
+      .then((d) => setQueue(d.results.filter((r) => r.current_status !== 'AUTO_CLOSED')))
+      .catch(() => undefined)
+  }, [runId, resultId])
+
   if (error && !detail) return <ErrorNote title="Could not load this line" body={error} />
   if (!detail) return <Loading />
 
   const s = detail.snapshot
+  const risk = Number(detail.snapshot.exposure ?? 0)
+  const position = queue.findIndex((r) => r.id === resultId)
+  const prev = position > 0 ? queue[position - 1] : null
+  const next = position >= 0 && position < queue.length - 1 ? queue[position + 1] : null
 
   async function decide(action: string) {
     setBusy(true)
@@ -61,9 +76,34 @@ export default function ResultDetail() {
         title={`${s.po_number || 'No PO'} · ${s.item || 'Unnamed item'}`}
         subtitle={detail.explanation}
         actions={
-          <Link to={`/reconciliation/${runId}`}>
-            <Button variant="secondary">Back to results</Button>
-          </Link>
+          <>
+            {position >= 0 && queue.length > 0 && (
+              <span className="mr-1 text-xs text-gray-500">
+                Exception {position + 1} of {queue.length}
+              </span>
+            )}
+            <Link
+              to={prev ? `/reconciliation/${runId}/results/${prev.id}` : '#'}
+              aria-disabled={!prev}
+              className={prev ? '' : 'pointer-events-none opacity-40'}
+            >
+              <Button variant="secondary" size="sm">
+                ← Prev
+              </Button>
+            </Link>
+            <Link
+              to={next ? `/reconciliation/${runId}/results/${next.id}` : '#'}
+              aria-disabled={!next}
+              className={next ? '' : 'pointer-events-none opacity-40'}
+            >
+              <Button variant="secondary" size="sm">
+                Next →
+              </Button>
+            </Link>
+            <Link to={`/reconciliation/${runId}`}>
+              <Button variant="secondary">All results</Button>
+            </Link>
+          </>
         }
       />
 
@@ -77,6 +117,14 @@ export default function ResultDetail() {
           <span className="text-xs text-gray-500">Current</span>
           <StatusPill status={detail.current_status} />
         </div>
+        {risk > 0 && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1">
+            <span className="text-xs text-amber-800">At risk</span>
+            <span className="text-sm font-semibold text-amber-800">
+              ₹{money(detail.snapshot.exposure)}
+            </span>
+          </div>
+        )}
         {detail.rule_version && (
           <span className="ml-auto text-xs text-gray-400">Rules {detail.rule_version}</span>
         )}

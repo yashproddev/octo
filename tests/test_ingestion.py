@@ -238,3 +238,42 @@ class TestNumericBounds:
             actor="tester", max_bytes=MAX,
         )
         assert outcome.run.error_row_count == 0
+
+
+class TestBulkDecisions:
+    def test_bulk_applies_one_decision_row_per_result(self, db):
+        """Batching the clicks must not batch the audit trail — each line keeps
+        its own decision with its own before/after status."""
+        from app.models import DecisionLogEntry, ResultStatus
+        from app.modules.m4.decisions import record_bulk
+        from app.modules.m4.engine import reconcile
+        from app.modules.m4.normalize import normalize_run
+
+        header = (
+            "po_number,vendor,item,po_quantity,grn_quantity,invoice_quantity,"
+            "po_unit_price,invoice_unit_price,invoice_number,tax\n"
+        )
+        body = (
+            "PO-1,Acme,Bearing,100,98,100,450,450,INV-1,8100\n"
+            "PO-2,Acme,Seal,50,48,50,120,120,INV-2,1080\n"
+        )
+        outcome = ingest_csv(db, content=(header + body).encode(), filename="b.csv",
+                             actor="t", max_bytes=MAX)
+        normalize_run(db, outcome.run)
+        recon = reconcile(db, outcome.run)
+        open_results = [r for r in recon.results if r.current_status != ResultStatus.AUTO_CLOSED]
+        assert len(open_results) == 2
+
+        entries = record_bulk(db, results=open_results, action="APPROVE", actor="clerk")
+        db.flush()
+
+        assert len(entries) == 2
+        for r in open_results:
+            rows = db.query(DecisionLogEntry).filter_by(
+                reconciliation_result_id=r.id, is_system=False
+            ).all()
+            assert len(rows) == 1
+            assert rows[0].actor == "clerk"
+            # The machine's verdict survives the batch, exactly as for a single decision.
+            assert r.system_status == ResultStatus.MISMATCH
+            assert r.current_status == ResultStatus.AUTO_CLOSED

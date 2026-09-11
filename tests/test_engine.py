@@ -171,3 +171,43 @@ class TestRunIndependence:
         assert ResultStatus.MISMATCH in statuses
         assert ResultStatus.DUPLICATE in statuses
         assert ResultStatus.INCOMPLETE in statuses
+
+
+class TestFinancialExposure:
+    """Exposure answers the only question finance asks: how much would we
+    overpay? A count of exceptions does not answer it."""
+
+    def test_clean_line_has_no_exposure(self, db):
+        _, results = run_csv(db, "PO-1,Acme,Bearing,100,100,100,450,450,INV-1,8100\n")
+        assert Decimal(results[0].snapshot["exposure"]) == 0
+
+    def test_billed_for_goods_not_received(self, db):
+        # 2 units short at 450 each, plus 18% tax on the difference.
+        _, results = run_csv(db, "PO-1,Acme,Bearing,100,98,100,450,450,INV-1,8100\n")
+        assert Decimal(results[0].snapshot["exposure"]) == Decimal("1062.00")
+
+    def test_overcharged_per_unit(self, db):
+        _, results = run_csv(db, "PO-1,Acme,Bearing,100,100,100,450,475,INV-1,8550\n")
+        assert Decimal(results[0].snapshot["exposure"]) == Decimal("2950.00")
+
+    def test_duplicate_puts_the_whole_line_at_risk(self, db):
+        _, results = run_csv(
+            db,
+            "PO-1,Acme,Bearing,200,200,200,310,310,INV-1,11160\n"
+            "PO-1,Acme,Bearing,200,200,200,310,310,INV-1,11160\n",
+        )
+        # The second billing of the same line is entirely an overpayment.
+        assert Decimal(results[1].snapshot["exposure"]) == Decimal("73160.00")
+
+    def test_unvaluable_line_reports_none_not_zero(self, db):
+        """Zero would claim there is nothing at risk. None says we cannot tell."""
+        _, results = run_csv(db, ",Acme,Bearing,100,100,100,,450,INV-1,8100\n")
+        assert results[0].snapshot["exposure"] is None
+
+    def test_run_total_sums_only_overpayments(self, db):
+        recon, _ = run_csv(
+            db,
+            "PO-1,Acme,Bearing,100,100,100,450,450,INV-1,8100\n"
+            "PO-2,Acme,Seal,100,98,100,450,450,INV-2,8100\n",
+        )
+        assert Decimal(recon.total_exposure) == Decimal("1062.00")

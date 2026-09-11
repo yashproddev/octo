@@ -34,6 +34,7 @@ from app.modules.m4.rules import (
     check_tax,
     compare_price,
     compare_quantity,
+    financial_exposure,
 )
 
 
@@ -207,9 +208,10 @@ def _explain(status: str, outcome: RuleOutcome) -> str:
     return " ".join(f.explanation for f in relevant if f.explanation) or "No explanation available."
 
 
-def _snapshot(row: _Row) -> dict:
+def _snapshot(row: _Row, exposure: Decimal | None) -> dict:
     data = row.staging.mapped_data or {}
     return {
+        "exposure": str(exposure) if exposure is not None else None,
         "row_number": row.staging.row_number,
         "po_number": data.get("po_number"),
         "vendor": data.get("vendor"),
@@ -243,9 +245,25 @@ def reconcile(
     duplicates = _duplicate_keys(rows)
     counts: dict[str, int] = {}
 
+    total_exposure = Decimal("0")
+
     for row in rows:
-        status, outcome = _evaluate(row, tol, duplicates.get(row.staging.id))
+        duplicate = duplicates.get(row.staging.id)
+        status, outcome = _evaluate(row, tol, duplicate)
         current = status
+
+        exposure = financial_exposure(
+            po_qty=row.po_line.quantity if row.po_line else None,
+            grn_qty=row.grn_line.quantity if row.grn_line else None,
+            inv_qty=row.invoice_line.quantity if row.invoice_line else None,
+            po_price=row.po_line.unit_price if row.po_line else None,
+            inv_price=row.invoice_line.unit_price if row.invoice_line else None,
+            tax=row.invoice_line.tax if row.invoice_line else None,
+            tol=tol,
+            is_duplicate=bool(duplicate),
+        )
+        if exposure is not None and exposure > 0:
+            total_exposure += exposure
 
         result = ReconciliationResult(
             reconciliation_run_id=recon.id,
@@ -257,7 +275,7 @@ def reconcile(
             current_status=current,
             findings=[f.as_dict() for f in outcome.findings],
             explanation=_explain(status, outcome),
-            snapshot=_snapshot(row),
+            snapshot=_snapshot(row, exposure),
         )
         db.add(result)
         db.flush()
@@ -282,6 +300,7 @@ def reconcile(
 
     recon.status = ReconciliationRunStatus.COMPLETED
     recon.status_counts = counts
+    recon.total_exposure = total_exposure.quantize(Decimal("0.01"))
     recon.completed_at = datetime.now(UTC)
     db.flush()
     return recon

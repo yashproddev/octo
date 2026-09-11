@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { DecisionLogRow } from '../types'
 import {
+  Button,
   Card,
   EmptyState,
   ErrorNote,
@@ -34,6 +35,10 @@ export default function DecisionLog() {
         title="Decision Log"
         subtitle="Append-only. Every closure is recorded against the system's original verdict, which is never overwritten."
         actions={
+          <>
+          <a href="/api/v1/decisions/export.csv" download>
+            <Button variant="secondary">Export CSV</Button>
+          </a>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
             <input
               type="checkbox"
@@ -43,6 +48,7 @@ export default function DecisionLog() {
             />
             Include automatic closures
           </label>
+          </>
         }
       />
 

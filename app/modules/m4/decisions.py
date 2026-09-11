@@ -27,6 +27,27 @@ _TRANSITIONS = {
 _REASON_REQUIRED = {DecisionAction.OVERRIDE, DecisionAction.REJECT}
 
 
+def record_bulk(
+    db: Session,
+    *,
+    results: list[ReconciliationResult],
+    action: str,
+    actor: str,
+    reason: str | None = None,
+) -> list[DecisionLogEntry]:
+    """Apply one action across many results.
+
+    Clearing a queue of two hundred exceptions one screen at a time is not a
+    workflow anybody completes. Each line still gets its own decision row with
+    its own before/after status, so the audit trail is identical to deciding
+    them individually — only the clicking is batched, not the record.
+    """
+    return [
+        record_decision(db, result=r, action=action, actor=actor, reason=reason)
+        for r in results
+    ]
+
+
 def record_decision(
     db: Session,
     *,

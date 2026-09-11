@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +21,9 @@ class ReconciliationRun(Base, UUIDPrimaryKey, Timestamped):
     tolerances: Mapped[dict] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(32), default=ReconciliationRunStatus.RUNNING)
     status_counts: Mapped[dict | None] = mapped_column(JSONB)
+    # Money that would be overpaid if every exception in this run were paid as
+    # billed. The number finance acts on, as opposed to a count of exceptions.
+    total_exposure: Mapped[object | None] = mapped_column(Numeric(18, 2))
     error: Mapped[str | None] = mapped_column(Text)
 
     started_at: Mapped[datetime] = mapped_column(

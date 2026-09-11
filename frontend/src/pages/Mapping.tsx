@@ -45,6 +45,13 @@ export default function Mapping() {
   const [overrides, setOverrides] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [tol, setTol] = useState({
+    qty_tolerance_abs: '0',
+    qty_tolerance_pct: '0',
+    price_tolerance_pct: '0.5',
+    tax_tolerance_abs: '1.00',
+    expected_tax_rate: '0.18',
+  })
 
   const load = () =>
     api.get<RunDetail>(`/ingestion/runs/${runId}`).then(setDetail).catch((e) => setError(String(e)))
@@ -93,6 +100,7 @@ export default function Mapping() {
       }
       const res = await api.post<{ run: ReconciliationRun }>('/reconciliation/runs', {
         ingestion_run_id: runId,
+        tolerances: tol,
       })
       navigate(`/reconciliation/${res.run.id}`)
     } catch (e) {
@@ -203,6 +211,44 @@ export default function Mapping() {
             )}
           </Card>
 
+          <Card
+            title="Tolerances"
+            description="Frozen onto the run, so results stay explainable later."
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <TolField
+                label="Quantity (units)"
+                value={tol.qty_tolerance_abs}
+                onChange={(v) => setTol((t) => ({ ...t, qty_tolerance_abs: v }))}
+              />
+              <TolField
+                label="Quantity (%)"
+                value={tol.qty_tolerance_pct}
+                onChange={(v) => setTol((t) => ({ ...t, qty_tolerance_pct: v }))}
+              />
+              <TolField
+                label="Price (%)"
+                value={tol.price_tolerance_pct}
+                onChange={(v) => setTol((t) => ({ ...t, price_tolerance_pct: v }))}
+              />
+              <TolField
+                label="Tax (absolute)"
+                value={tol.tax_tolerance_abs}
+                onChange={(v) => setTol((t) => ({ ...t, tax_tolerance_abs: v }))}
+              />
+              <TolField
+                label="Expected tax rate"
+                value={tol.expected_tax_rate}
+                onChange={(v) => setTol((t) => ({ ...t, expected_tax_rate: v }))}
+                hint="0.18 = 18%"
+              />
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              A variance inside tolerance is flagged for review rather than closed silently — tolerated
+              is not the same as correct.
+            </p>
+          </Card>
+
           <Card title={`Row errors (${run.error_row_count})`} description="These rows still load, flagged as incomplete.">
             {run.validation_errors.length === 0 ? (
               <p className="text-sm text-gray-500">No row-level problems found.</p>
@@ -220,5 +266,31 @@ export default function Mapping() {
         </div>
       </div>
     </div>
+  )
+}
+
+
+function TolField({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  hint?: string
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs text-gray-600">{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode="decimal"
+        className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-teal-600 focus:outline-none"
+      />
+      {hint && <span className="mt-0.5 block text-[11px] text-gray-400">{hint}</span>}
+    </label>
   )
 }

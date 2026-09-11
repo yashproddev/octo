@@ -1,12 +1,15 @@
+import csv
+import io
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.models import DecisionLogEntry, ReconciliationResult
-from app.modules.m4.decisions import DecisionRejected, record_decision
+from app.modules.m4.decisions import DecisionRejected, record_bulk, record_decision
 
 router = APIRouter()
 
@@ -63,6 +66,58 @@ def create_decision(
     }
 
 
+@router.post("/decisions/bulk", status_code=201)
+def create_bulk(
+    payload: dict,
+    db: Session = Depends(get_db),
+    who: str = Depends(actor),
+) -> dict:
+    ids = payload.get("result_ids") or []
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(422, detail={"message": "'result_ids' must be a non-empty list."})
+    if len(ids) > 500:
+        raise HTTPException(
+            422,
+            detail={
+                "message": f"{len(ids)} lines is above the 500-line batch limit.",
+                "hint": "Filter to a narrower set and apply the action again.",
+            },
+        )
+
+    try:
+        uuids = [uuid.UUID(str(i)) for i in ids]
+    except ValueError as exc:
+        raise HTTPException(422, detail={"message": "One of the result ids is not valid."}) from exc
+
+    results = db.execute(
+        select(ReconciliationResult)
+        .where(ReconciliationResult.id.in_(uuids))
+        .options(selectinload(ReconciliationResult.run))
+    ).scalars().all()
+
+    missing = len(uuids) - len(results)
+    if not results:
+        raise HTTPException(404, detail={"message": "None of those results were found."})
+
+    try:
+        entries = record_bulk(
+            db,
+            results=results,
+            action=str(payload.get("action", "")),
+            actor=who,
+            reason=payload.get("reason"),
+        )
+    except DecisionRejected as exc:
+        raise HTTPException(422, detail={"message": str(exc)}) from exc
+
+    db.commit()
+    return {
+        "applied": len(entries),
+        "not_found": missing,
+        "action": entries[0].action if entries else None,
+    }
+
+
 @router.get("/decisions")
 def list_decisions(
     db: Session = Depends(get_db),
@@ -103,3 +158,36 @@ def list_decisions(
             for e in entries
         ]
     }
+
+
+@router.get("/decisions/export.csv", response_class=PlainTextResponse)
+def export_decisions(db: Session = Depends(get_db)) -> PlainTextResponse:
+    """The audit trail as a file. Finance and audit live in spreadsheets, and a
+    log that cannot leave the screen is not much use at close."""
+    entries = db.execute(
+        select(DecisionLogEntry)
+        .order_by(desc(DecisionLogEntry.decided_at))
+        .options(selectinload(DecisionLogEntry.result))
+    ).scalars().all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "decided_at", "actor", "action", "is_system", "po_number", "item",
+        "invoice_number", "system_verdict", "from_status", "to_status",
+        "exposure", "reason", "rule_version", "result_id",
+    ])
+    for e in entries:
+        snap = (e.result.snapshot if e.result else None) or {}
+        writer.writerow([
+            e.decided_at.isoformat(), e.actor, e.action, e.is_system,
+            snap.get("po_number", ""), snap.get("item", ""), snap.get("invoice_number", ""),
+            e.result.system_status if e.result else "", e.from_status, e.to_status,
+            snap.get("exposure", ""), e.reason or "", e.rule_version, str(e.reconciliation_result_id),
+        ])
+
+    return PlainTextResponse(
+        buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="m4-decision-log.csv"'},
+    )

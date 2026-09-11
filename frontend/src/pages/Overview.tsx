@@ -14,6 +14,7 @@ import {
   Td,
   Th,
   formatDateTime,
+  money,
 } from '../components/ui'
 
 export default function Overview() {
@@ -59,6 +60,16 @@ export default function Overview() {
         />
       ) : (
         <>
+          <div className="mb-4 rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm">
+            <div className="text-xs text-gray-500">Total value at risk across all runs</div>
+            <div className="mt-0.5 text-4xl font-semibold tracking-tight text-amber-700">
+              ₹{money(data.open_exposure)}
+            </div>
+            <div className="mt-1 text-xs text-gray-400">
+              What would be overpaid if every open exception were settled exactly as billed.
+            </div>
+          </div>
+
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <StatCard label="Auto-closed" value={counts.AUTO_CLOSED ?? 0} tone="good" />
             <StatCard label="Review" value={counts.REVIEW ?? 0} tone="info" />

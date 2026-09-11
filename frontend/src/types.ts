@@ -80,6 +80,7 @@ export interface ReconciliationRun {
   tolerances: Record<string, string | boolean>
   status: string
   status_counts: Partial<Record<ResultStatus, number>>
+  total_exposure: string | null
   started_at: string | null
   completed_at: string | null
 }
@@ -104,6 +105,7 @@ export interface ResultRow {
   invoice_unit_price: string | null
   tax: string | null
   currency: string | null
+  exposure: string | null
 }
 
 export interface Finding {
@@ -154,6 +156,7 @@ export interface DecisionLogRow extends Decision {
 
 export interface Overview {
   latest_run: ReconciliationRun | null
+  open_exposure: string
   totals: {
     ingestion_runs: number
     reconciliation_runs: number

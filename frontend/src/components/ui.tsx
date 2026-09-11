@@ -224,3 +224,22 @@ export function num(value: string | null | undefined): string {
   if (Number.isNaN(parsed)) return value
   return parsed.toLocaleString(undefined, { maximumFractionDigits: 4 })
 }
+
+/** Money, shown the way a finance team reads it: grouped, two decimals, and
+ *  never a bare "0" where the value is actually unknown. */
+export function money(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const n = Number(value)
+  if (Number.isNaN(n)) return '—'
+  return n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+}
+
+export function compactMoney(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const n = Math.abs(Number(value))
+  if (Number.isNaN(n)) return '—'
+  if (n >= 10_000_000) return `${(n / 10_000_000).toFixed(2)} Cr`
+  if (n >= 100_000) return `${(n / 100_000).toFixed(2)} L`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return n.toFixed(0)
+}

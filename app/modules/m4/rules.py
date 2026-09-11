@@ -102,6 +102,53 @@ def _pct(numerator: Decimal, denominator: Decimal) -> Decimal | None:
     return (abs(numerator) / abs(denominator) * Decimal("100")).quantize(Decimal("0.0001"))
 
 
+def financial_exposure(
+    po_qty: Decimal | None,
+    grn_qty: Decimal | None,
+    inv_qty: Decimal | None,
+    po_price: Decimal | None,
+    inv_price: Decimal | None,
+    tax: Decimal | None,
+    tol: Tolerances,
+    is_duplicate: bool = False,
+) -> Decimal | None:
+    """What this line would overpay if the invoice were paid exactly as billed.
+
+    A count of exceptions is an operational metric; this is the one finance
+    actually acts on. The entitled amount is the quantity genuinely received
+    (never more than was ordered) at the agreed price — anything billed above
+    that, tax included, is money at risk.
+
+    Returns None when the inputs are too incomplete to state a number honestly,
+    which is different from returning zero.
+    """
+    if inv_qty is None or inv_price is None:
+        return None
+
+    billed_value = inv_qty * inv_price
+    billed_tax = tax if tax is not None else billed_value * tol.expected_tax_rate
+
+    # A duplicate line is wrong in its entirety: the whole amount is paid twice.
+    if is_duplicate:
+        return (billed_value + billed_tax).quantize(Decimal("0.01"))
+
+    if po_price is None:
+        return None
+
+    # Cannot legitimately be billed for more than was received, nor more than ordered.
+    candidates = [q for q in (grn_qty, po_qty) if q is not None]
+    if not candidates:
+        return None
+    entitled_qty = min(candidates)
+
+    entitled_value = entitled_qty * po_price
+    entitled_tax = entitled_value * tol.expected_tax_rate
+
+    return ((billed_value + billed_tax) - (entitled_value + entitled_tax)).quantize(
+        Decimal("0.01")
+    )
+
+
 def compare_quantity(
     rule_id: str,
     label: str,
