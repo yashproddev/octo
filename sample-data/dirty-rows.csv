@@ -1,0 +1,6 @@
+po_number,vendor,item,po_quantity,grn_quantity,invoice_quantity,po_unit_price,invoice_unit_price,invoice_number
+PO-6001,Acme Industrial Ltd,Ball Bearing 6205,"1,200",1200,1200,"₹450.00",450.00,INV-7001
+PO-6002,Acme Industrial Ltd,Oil Seal,abc,50,50,120.00,120.00,INV-7002
+PO-6003,Acme Industrial Ltd,V-Belt,0,0,0,320.00,320.00,INV-7003
+PO-6004,Acme Industrial Ltd,Grease,-15,15,15,185.00,185.00,INV-7004
+PO-6005,,End Mill,75,75,75,540.00,540.00,INV-7005

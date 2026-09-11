@@ -1,0 +1,3 @@
+po_number,vendor,item,po_quantity,grn_quantity,invoice_quantity,po_unit_price,invoice_unit_price,invoice_number,tax,po_date,grn_date,invoice_date,vendor_code,item_code,currency
+PO-1001,Acme Industrial Ltd,Ball Bearing 6205,100,100,100,450.00,450.00,INV-2201,8100.00,2026-01-12,2026-01-20,2026-01-22,V-0012,BRG-6205,INR
+PO-1002,Acme Industrial Ltd,Oil Seal 35x52x7,50,48,50,120.00,126.00,INV-2202,1134.00,2026-01-12,2026-01-20,2026-01-22,V-0012,SEL-3552,INR

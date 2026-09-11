@@ -1,0 +1,9 @@
+# Runtime dependencies — these are what Vercel installs into the serverless bundle.
+# Keep this list lean; every package here inflates cold-start time.
+fastapi>=0.115,<1.0
+pydantic>=2.9,<3.0
+pydantic-settings>=2.5,<3.0
+sqlalchemy>=2.0,<3.0
+psycopg[binary]>=3.2,<4.0
+pandas>=2.2,<3.0
+python-multipart>=0.0.12

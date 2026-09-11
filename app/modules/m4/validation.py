@@ -1,0 +1,224 @@
+"""File, column and row-level validation for an uploaded reconciliation CSV.
+
+The guiding rule: when a file is rejected, the user must be told exactly what is
+wrong and what the file should have looked like — never just "invalid CSV".
+"""
+
+import io
+import re
+from dataclasses import asdict, dataclass
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
+import pandas as pd
+
+from app.modules.m4.column_map import MappingResult
+from app.modules.m4.fields import BY_NAME
+
+# Strips currency symbols, thousands separators and stray spaces before parsing.
+_NUMERIC_NOISE = re.compile(r"[,\s₹$€£]")
+# Trailing negative, as some ERP exports emit "1200-" rather than "-1200".
+_TRAILING_MINUS = re.compile(r"^(\d+(?:\.\d+)?)-$")
+
+_DATE_FORMATS = (
+    "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
+    "%Y/%m/%d", "%d %b %Y", "%d %B %Y", "%b %d %Y", "%d-%b-%Y", "%d-%b-%y",
+)
+
+
+class CsvFormatError(Exception):
+    """The file could not be read as a CSV at all."""
+
+    def __init__(self, message: str, hint: str | None = None):
+        super().__init__(message)
+        self.message = message
+        self.hint = hint
+
+
+@dataclass
+class RowError:
+    row_number: int
+    field: str | None
+    source_column: str | None
+    value: str | None
+    message: str
+
+
+@dataclass
+class ParsedRow:
+    row_number: int
+    raw: dict
+    mapped: dict
+    errors: list[RowError]
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.errors
+
+
+def read_csv(content: bytes, filename: str = "upload.csv") -> pd.DataFrame:
+    if not content.strip():
+        raise CsvFormatError(
+            "The uploaded file is empty.",
+            "Export your data again and confirm the file has a header row and at least one data row.",
+        )
+
+    last_error: Exception | None = None
+    # utf-8-sig first: Excel on Windows prepends a BOM that would otherwise become
+    # part of the first column name and break header matching.
+    for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            frame = pd.read_csv(
+                io.BytesIO(content),
+                dtype=str,
+                keep_default_na=False,
+                na_values=[],
+                encoding=encoding,
+                skip_blank_lines=True,
+            )
+            break
+        except UnicodeDecodeError as exc:
+            last_error = exc
+            continue
+        except pd.errors.EmptyDataError as exc:
+            raise CsvFormatError(
+                "The file contains no readable rows.",
+                "Check that the first line is a header row of column names.",
+            ) from exc
+        except pd.errors.ParserError as exc:
+            raise CsvFormatError(
+                f"The file could not be parsed as CSV: {exc}",
+                "Rows probably have differing numbers of columns. Re-export as a plain CSV.",
+            ) from exc
+    else:
+        raise CsvFormatError(
+            "The file's text encoding could not be determined.",
+            "Save the file as CSV UTF-8 and upload it again.",
+        ) from last_error
+
+    frame.columns = [str(c).strip() for c in frame.columns]
+
+    if frame.empty:
+        raise CsvFormatError(
+            "The file has a header row but no data rows.",
+            "Add at least one line of data below the header.",
+        )
+
+    blank = [i for i, c in enumerate(frame.columns) if not c or c.startswith("Unnamed:")]
+    if len(blank) == len(frame.columns):
+        raise CsvFormatError(
+            "No column names were found in the first row.",
+            "The first row must contain column headings, not data.",
+        )
+
+    return frame
+
+
+def parse_number(value: str) -> Decimal | None:
+    text = _NUMERIC_NOISE.sub("", str(value).strip())
+    if not text:
+        return None
+    if (m := _TRAILING_MINUS.match(text)):
+        text = f"-{m.group(1)}"
+    if text.startswith("(") and text.endswith(")"):  # (1200) = negative
+        text = f"-{text[1:-1]}"
+    try:
+        return Decimal(text)
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def parse_date(value: str) -> date | None:
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def validate_rows(frame: pd.DataFrame, mapping: MappingResult) -> list[ParsedRow]:
+    """Coerce every row into canonical types, collecting per-cell failures.
+
+    Invalid rows are kept, not dropped. A row that cannot be parsed still has to
+    surface later as an INCOMPLETE result rather than silently disappearing
+    between the file the user uploaded and the numbers they are shown.
+    """
+    rows: list[ParsedRow] = []
+    records = frame.to_dict(orient="records")
+
+    for index, record in enumerate(records):
+        # +2 so the number matches what the user sees in a spreadsheet:
+        # row 1 is the header, data starts at row 2.
+        row_number = index + 2
+        mapped: dict = {}
+        errors: list[RowError] = []
+
+        for field_name, match in mapping.mapping.items():
+            spec = BY_NAME[field_name]
+            raw_value = str(record.get(match.source_column, "") or "").strip()
+
+            if not raw_value:
+                mapped[field_name] = None
+                if spec.required:
+                    errors.append(RowError(
+                        row_number, field_name, match.source_column, None,
+                        f"{spec.label} is blank. This column is required.",
+                    ))
+                continue
+
+            if spec.kind == "number":
+                number = parse_number(raw_value)
+                if number is None:
+                    errors.append(RowError(
+                        row_number, field_name, match.source_column, raw_value,
+                        f"{spec.label} is \"{raw_value}\", which is not a number.",
+                    ))
+                    mapped[field_name] = None
+                elif number < 0:
+                    errors.append(RowError(
+                        row_number, field_name, match.source_column, raw_value,
+                        f"{spec.label} is negative ({number}). Quantities and prices must be zero or above.",
+                    ))
+                    mapped[field_name] = str(number)
+                else:
+                    mapped[field_name] = str(number)
+
+            elif spec.kind == "date":
+                parsed = parse_date(raw_value)
+                if parsed is None:
+                    errors.append(RowError(
+                        row_number, field_name, match.source_column, raw_value,
+                        f"{spec.label} is \"{raw_value}\", which is not a recognised date. "
+                        "Use DD/MM/YYYY or YYYY-MM-DD.",
+                    ))
+                    mapped[field_name] = None
+                else:
+                    mapped[field_name] = parsed.isoformat()
+
+            else:
+                mapped[field_name] = raw_value
+
+        # Quantity of zero on the order itself means there is nothing to reconcile.
+        po_qty = mapped.get("po_quantity")
+        if po_qty is not None and Decimal(po_qty) == 0:
+            errors.append(RowError(
+                row_number, "po_quantity", mapping.source_for("po_quantity"), po_qty,
+                "PO Quantity is zero, so there is nothing to reconcile on this line.",
+            ))
+
+        rows.append(ParsedRow(
+            row_number=row_number,
+            raw={str(k): ("" if v is None else str(v)) for k, v in record.items()},
+            mapped=mapped,
+            errors=errors,
+        ))
+
+    return rows
+
+
+def errors_to_json(errors: list[RowError]) -> list[dict]:
+    return [asdict(e) for e in errors]

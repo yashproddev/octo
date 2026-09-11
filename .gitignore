@@ -1,0 +1,27 @@
+# secrets — the GitHub repo is public, nothing here may ever be committed
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# vercel
+.vercel/
+
+# os / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,3 @@
+PO No.,Supplier Name,Material Description,Ordered Qty,Received Qty,Billed Qty,PO Rate,Invoice Rate,Invoice No,GST Amount,Order Date
+PO-4001,Acme Industrial Ltd,Ball Bearing 6205,100,100,100,450.00,450.00,INV-5001,8100.00,12/01/2026
+PO-4002,Bharat Fasteners Pvt Ltd,Hex Bolt M12x60,500,495,500,12.50,12.50,INV-5002,1125.00,14/01/2026
