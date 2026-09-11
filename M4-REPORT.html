@@ -1,0 +1,273 @@
+<title>M4 Prototype Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#111827; --ink-soft:#374151; --ink-mute:#6b7280; --ink-faint:#9ca3af;
+  --rule:#e5e7eb; --rule-soft:#f3f4f6; --paper:#fff; --paper-alt:#f9fafb;
+  --teal:#0d9488; --teal-dark:#0f766e; --teal-deep:#134e4a; --teal-soft:#f0fdfa;
+  --blue:#1d4ed8; --blue-soft:#eff6ff;
+  --amber:#b45309; --amber-soft:#fffbeb;
+  --red:#b91c1c; --red-soft:#fef2f2;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper-alt);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:940px;margin:0 auto;padding:0 2rem 6rem}
+
+.cover{background:var(--teal-deep);color:#fff;padding:3.5rem 0 3rem;margin-bottom:2.5rem}
+.cover .wrap{padding-bottom:0}
+.cover .eyebrow{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:#5eead4;font-weight:700;margin-bottom:.7rem}
+.cover h1{font-size:2.1rem;font-weight:700;letter-spacing:-.02em;margin:0 0 .5rem}
+.cover p{color:#99f6e4;max-width:62ch;margin:0 0 1.6rem;font-size:1rem}
+.cover .live{display:inline-flex;align-items:center;gap:.5rem;background:rgba(255,255,255,.1);border:1px solid rgba(153,246,228,.3);border-radius:6px;padding:.5rem .9rem;font-size:.85rem}
+.cover .live a{color:#5eead4;text-decoration:none;font-weight:600}
+.cover .live a:hover{text-decoration:underline}
+.dot{width:7px;height:7px;border-radius:50%;background:#2dd4bf;display:inline-block}
+
+h2{font-size:1.3rem;font-weight:700;letter-spacing:-.015em;margin:3rem 0 .3rem;padding-top:1.5rem;border-top:2px solid var(--ink)}
+h2 .num{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:.35rem}
+h3{font-size:1rem;font-weight:650;margin:1.8rem 0 .5rem}
+p{margin:0 0 .9rem;max-width:74ch}
+ul,ol{margin:0 0 1rem;padding-left:1.3rem;max-width:74ch}
+li{margin-bottom:.4rem}
+code{font-family:var(--mono);font-size:.84em;background:var(--rule-soft);border:1px solid var(--rule);border-radius:3px;padding:.08em .32em}
+strong{font-weight:650}
+
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:1.2rem 1.4rem;margin:1.2rem 0}
+.card.teal{border-left:3px solid var(--teal);background:var(--teal-soft)}
+.card.blue{border-left:3px solid var(--blue);background:var(--blue-soft)}
+.card.amber{border-left:3px solid var(--amber);background:var(--amber-soft)}
+.card.red{border-left:3px solid var(--red);background:var(--red-soft)}
+.card>:last-child{margin-bottom:0}
+.card .lbl{display:block;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:.5rem;color:var(--teal-dark)}
+.card.blue .lbl{color:var(--blue)} .card.amber .lbl{color:var(--amber)} .card.red .lbl{color:var(--red)}
+
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:1.1rem 0;background:var(--paper)}
+th,td{text-align:left;padding:.55rem .75rem;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-mute);font-weight:650;border-bottom:1.5px solid var(--ink);white-space:nowrap}
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:8px}
+.tw table{margin:0}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin:1.3rem 0}
+.stat{background:var(--paper);padding:.9rem 1rem}
+.stat .v{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;color:var(--teal-dark);line-height:1.1}
+.stat .k{font-size:.7rem;color:var(--ink-mute);margin-top:.2rem;line-height:1.35}
+
+pre{font-family:var(--mono);font-size:.76rem;line-height:1.55;background:var(--paper);border:1px solid var(--rule);border-left:3px solid var(--teal);border-radius:6px;padding:.9rem 1.1rem;overflow-x:auto;margin:1.1rem 0}
+pre code{background:none;border:none;padding:0}
+
+.pill{display:inline-block;font-size:.68rem;font-weight:650;padding:.1rem .45rem;border-radius:4px;border:1px solid currentColor}
+.pill.ok{color:var(--teal-dark);background:var(--teal-soft)}
+.pill.no{color:var(--ink-faint);background:var(--rule-soft)}
+footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-size:.8rem;color:var(--ink-faint)}
+</style>
+
+<div class="cover">
+<div class="wrap">
+  <div class="eyebrow">OctoProc MRO Platform · Module 4</div>
+  <h1>Vendor Reconciliation &amp; Closure</h1>
+  <p>A standalone, deployed prototype. Upload a CSV of purchase, receipt and invoice lines; reconcile them deterministically; auto-close clean matches; route every exception to a human whose decision is permanently auditable.</p>
+  <div class="live"><span class="dot"></span> Live at <a href="https://octo-snowy.vercel.app">octo-snowy.vercel.app</a> — public, no login</div>
+</div>
+</div>
+
+<div class="wrap">
+
+<div class="stats">
+  <div class="stat"><div class="v">10/10</div><div class="k">Build steps complete</div></div>
+  <div class="stat"><div class="v">57</div><div class="k">Tests passing</div></div>
+  <div class="stat"><div class="v">13</div><div class="k">Tables live on Neon</div></div>
+  <div class="stat"><div class="v">7</div><div class="k">Reconciliation rules</div></div>
+  <div class="stat"><div class="v">6</div><div class="k">Screens</div></div>
+  <div class="stat"><div class="v">0</div><div class="k">Models in the verdict path</div></div>
+</div>
+
+<h2><span class="num">Section 1</span>What works</h2>
+
+<p>The complete workflow the brief specifies runs end to end in production, verified against the live URL rather than only locally:</p>
+
+<pre><code>upload CSV → validate → stage → map columns → normalize
+           → reconcile → results → human review → decision log</code></pre>
+
+<div class="tw">
+<table>
+<thead><tr><th>Capability</th><th>State</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>CSV upload with file, column and row validation</td><td><span class="pill ok">Working</span></td><td>Empty, header-only, non-CSV, ragged and oversized files all return a specific message and the expected format</td></tr>
+<tr><td>Deterministic column aliasing</td><td><span class="pill ok">Working</span></td><td><code>PO No.</code>, <code>Ordered Qty</code>, <code>Received Qty</code>, <code>GST Amount</code> all resolve without manual work</td></tr>
+<tr><td>Manual column mapping override</td><td><span class="pill ok">Working</span></td><td>Any field can be re-pointed; re-staging re-validates</td></tr>
+<tr><td>Normalization fan-out</td><td><span class="pill ok">Working</span></td><td>One flat row → vendor, PO, PO line, GRN, GRN line, invoice, invoice line</td></tr>
+<tr><td>Seven-rule reconciliation engine</td><td><span class="pill ok">Working</span></td><td>All six statuses reachable; one sample file produces five of them</td></tr>
+<tr><td>Configurable tolerances</td><td><span class="pill ok">Working</span></td><td>Widening the price tolerance flips MISMATCH to REVIEW; values frozen onto the run</td></tr>
+<tr><td>Auto-closure of clean matches</td><td><span class="pill ok">Working</span></td><td>Recorded as a system decision, not a silent state change</td></tr>
+<tr><td>Human review: approve / reject / resolve / override</td><td><span class="pill ok">Working</span></td><td>Reason enforced on Override and Reject</td></tr>
+<tr><td>Immutable audit trail</td><td><span class="pill ok">Working</span></td><td>Verified live: system verdict <code>MISMATCH</code> persists alongside human <code>AUTO_CLOSED</code></td></tr>
+<tr><td>Multiple independent runs</td><td><span class="pill ok">Working</span></td><td>Five reconciliation runs coexisting; same file uploaded twice never collides</td></tr>
+<tr><td>Six-screen management UI</td><td><span class="pill ok">Working</span></td><td>Every number from a live API call; no static data anywhere</td></tr>
+<tr><td>Deployed and publicly shareable</td><td><span class="pill ok">Working</span></td><td>Vercel + Neon, SSO protection disabled</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Two rules that shaped everything else</h3>
+
+<div class="card teal">
+<span class="lbl">Reconciliation is deterministic</span>
+<p>No model sits anywhere in the verdict path. The same data with the same tolerances always produces the same result. That is what makes a human sign-off meaningful — a reviewer is confirming a reproducible finding, not arguing with a black box. It also means every exception can state its arithmetic: <em>“Invoice quantity 50 exceeds GRN quantity 48 by 2 (4.1667%), outside the 0-unit / 0% tolerance.”</em></p>
+</div>
+
+<div class="card teal">
+<span class="lbl">The system's verdict is never overwritten</span>
+<p><code>system_status</code> is written once by the engine and never updated. Human outcomes are <em>appended</em> to <code>decision_log</code>, and <code>current_status</code> is derived from the newest one. The machine's original judgment stays recoverable no matter how many times a person overturns it — the requirement is a structural property of the schema, not a convention someone has to remember.</p>
+</div>
+
+<h3>Judgment calls worth knowing about</h3>
+
+<p><strong>Duplicate detection keys on <code>(vendor, invoice_number, item)</code>.</strong> The same invoice number across different items is a normal multi-line invoice. Keying on invoice number alone would have flagged every multi-line invoice in a real file as a duplicate — false exceptions on day one, and a reviewer who stops trusting the tool.</p>
+
+<p><strong>A skipped check downgrades to REVIEW, never MATCHED.</strong> If the file carries no tax column, tax cannot be verified. Reporting that line as a clean match would quietly overstate assurance; “we could not check this” and “this is correct” are different claims.</p>
+
+<p><strong>Money and quantities are <code>Numeric</code>, never <code>Float</code>.</strong> The engine compares values within tolerances, and binary floating point would manufacture variances that do not exist in the source data — phantom mismatches a human then has to adjudicate. There is a test pinning this.</p>
+
+<p><strong>Canonical records are scoped to their ingestion run.</strong> <code>purchase_orders</code> is unique on <code>(ingestion_run_id, po_number)</code>, not <code>po_number</code> alone. Re-uploading the same file produces a separate, independent run rather than a primary-key collision.</p>
+
+<h2><span class="num">Section 2</span>Final architecture</h2>
+
+<pre><code>          ┌──────────── vercel.app · single origin, no CORS ────────────┐
+ browser ─┤  /          → static SPA   React 19 · TS · Vite · Tailwind 4 │
+          │  /api/*     → Python serverless function wrapping FastAPI    │
+          └────────────────────────────┬────────────────────────────────┘
+                                       │ SQLAlchemy · NullPool · pooled URL
+                                       ▼
+                            Neon Postgres 18.6
+                            └─ raw uploaded CSVs stored here too</code></pre>
+
+<div class="tw">
+<table>
+<thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Frontend</td><td>React 19, TypeScript, Vite, Tailwind v4</td><td>Matches octoproc.com's own stack, so the palette and typography are reproduced by using the same tokens rather than approximated</td></tr>
+<tr><td>API</td><td>FastAPI on a single Vercel Python function</td><td>Same origin as the SPA, which removes CORS configuration entirely</td></tr>
+<tr><td>Engine</td><td><code>app/modules/m4/</code>, no FastAPI imports</td><td>Pure Python over SQLAlchemy — liftable into the larger platform without a rewrite</td></tr>
+<tr><td>Database</td><td>Neon Postgres, 13 tables, Alembic</td><td>Managed, branchable, no local install</td></tr>
+<tr><td>Connections</td><td>Pooled endpoint + <code>NullPool</code></td><td>Serverless spawns many short-lived invocations; a direct connection each would exhaust the limit</td></tr>
+<tr><td>File storage</td><td>Raw bytes in Postgres</td><td>Serverless has no persistent disk; keeps the audit chain intact without a fourth service</td></tr>
+<tr><td>Migrations</td><td>Alembic against the <em>direct</em> URL, run locally</td><td>The pooler runs in transaction mode and cannot execute session-level DDL</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The traceability chain</h3>
+<pre><code>uploaded_files → ingestion_runs → staging_records → canonical lines
+              → reconciliation_results → decision_log</code></pre>
+<p>Every result carries <code>staging_record_id</code>, so the original CSV row — and the exact bytes uploaded — are one join away from any decision in the audit log.</p>
+
+<h3>Reconciliation rules</h3>
+<div class="tw">
+<table>
+<thead><tr><th>ID</th><th>Check</th><th>Tolerance</th><th>If data is absent</th></tr></thead>
+<tbody>
+<tr><td>R1</td><td>PO reference present and resolvable</td><td>—</td><td>Fails → INCOMPLETE</td></tr>
+<tr><td>R2</td><td>PO quantity vs GRN quantity</td><td><code>qty_abs</code>, <code>qty_pct</code></td><td>Skipped</td></tr>
+<tr><td>R3</td><td>GRN quantity vs invoice quantity</td><td>same</td><td>Skipped</td></tr>
+<tr><td>R4</td><td>PO unit price vs invoice unit price</td><td><code>price_pct</code> (0.5%)</td><td>Skipped</td></tr>
+<tr><td>R5</td><td>Tax consistency — <code>qty × price × rate</code></td><td><code>tax_abs</code> (1.00)</td><td>Skipped → REVIEW</td></tr>
+<tr><td>R6</td><td>Duplicate invoice line</td><td>exact</td><td>Skipped without invoice number</td></tr>
+<tr><td>R7</td><td>Record completeness</td><td>—</td><td>Fails → INCOMPLETE</td></tr>
+</tbody>
+</table>
+</div>
+<p>Status resolves by first-match-wins: <code>INCOMPLETE → DUPLICATE → MISMATCH → REVIEW → MATCHED</code>, after which <code>MATCHED</code> auto-closes to <code>AUTO_CLOSED</code>.</p>
+
+<h2><span class="num">Section 3</span>Known limitations</h2>
+
+<div class="card amber">
+<span class="lbl">Platform ceilings</span>
+<ul>
+<li><strong>4.5 MB upload cap</strong> — a hard Vercel request-body limit, roughly 25–40k rows. Larger files must be split into separate runs.</li>
+<li><strong>60-second function timeout.</strong> Comfortable at prototype volumes; a genuinely large file would need a queue.</li>
+<li><strong>Numeric ceiling of 99,999,999,999,999.9999</strong> per value. Now caught during validation with a clear message — it previously surfaced as an opaque HTTP 500.</li>
+<li><strong>Cold starts.</strong> pandas and numpy make the function bundle large; first request after idle is slow.</li>
+</ul>
+</div>
+
+<div class="card amber">
+<span class="lbl">Deliberate scope exclusions</span>
+<ul>
+<li><strong>No authentication.</strong> The acting user is an <code>X-Actor</code> header from a UI field, trivially spoofed. Adequate for a prototype, unacceptable for real audit.</li>
+<li><strong>No cross-run duplicate detection.</strong> The same invoice billed in two separate uploads is not flagged. The schema supports it; the rule does not yet.</li>
+<li><strong>No fuzzy matching.</strong> Vendor and item names are normalised for case, punctuation and whitespace only. “Acme Ltd” and “Acme Limited” are different vendors.</li>
+<li><strong>GRN references are synthesised.</strong> The CSV carries no GRN number, so one header is generated per PO per run.</li>
+<li><strong>Tax uses a single configured rate</strong> (18% default) for every line. Mixed-rate invoices will misreport.</li>
+<li><strong>Currency is captured, never converted.</strong> A multi-currency file reconciles numerically without regard to currency.</li>
+<li><strong>No editing after normalization</strong> — correcting data means re-uploading.</li>
+</ul>
+</div>
+
+<div class="card red">
+<span class="lbl">Operational risks to close before real use</span>
+<ul>
+<li><strong>Credentials were shared in plaintext</strong> during this build. The Neon password and the Vercel token should both be rotated.</li>
+<li><strong>Dev and production share one database.</strong> Neon branching should separate them before anyone else starts using the app.</li>
+<li><strong>The deployment is publicly accessible</strong> by request — anyone with the link can upload data and record decisions.</li>
+<li><strong>Tests run against the live database.</strong> They are transaction-wrapped and roll back, but they are not isolated from production data.</li>
+</ul>
+</div>
+
+<h2><span class="num">Section 4</span>Future upgrade path</h2>
+
+<div class="tw">
+<table>
+<thead><tr><th>Phase</th><th>Change</th><th>Why it comes when it does</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Real authentication and roles</td><td>Everything else in the audit trail is sound; the identity on it is not. This is the single highest-value upgrade.</td></tr>
+<tr><td>1</td><td>Separate dev/prod databases; rotate credentials</td><td>Hygiene, cheap, blocking for real data</td></tr>
+<tr><td>2</td><td>Cross-run duplicate detection</td><td>Catches the same invoice billed across two uploads — a real fraud vector the current scope misses</td></tr>
+<tr><td>2</td><td>Per-line tax rates</td><td>Removes the single-rate assumption that will misreport mixed-rate invoices</td></tr>
+<tr><td>2</td><td>Background processing for large files</td><td>Lifts the 4.5 MB / 60-second ceiling</td></tr>
+<tr><td>3</td><td>Vendor/item identity resolution across runs</td><td>Turns run-scoped records into a real master, enabling vendor-level analytics</td></tr>
+<tr><td>3</td><td>Tolerance profiles per vendor or category</td><td>A 0.5% price tolerance is not right for every commodity</td></tr>
+<tr><td>3</td><td>Learned rule suggestions from decision history</td><td>The decision log is already the training signal; it accumulates from day one</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="card blue">
+<span class="lbl">Where a model could legitimately be added</span>
+<p>The reconciliation path should stay deterministic permanently — that property is what makes the audit trail defensible. There are two places a model could help without touching it:</p>
+<ul>
+<li><strong>Column-mapping fallback.</strong> When a header matches no alias, a model proposes the canonical field. The deterministic dictionary still wins; the model only sees the unmatched remainder, and its output is a <em>suggestion the user confirms</em>. This attacks the most likely reason a demo stalls — a CSV with headers nobody anticipated.</li>
+<li><strong>Exception narration.</strong> Prose over the templated findings. Presentation only; the stored explanation remains authoritative.</li>
+</ul>
+<p>Neither is built. The first is worth having; the second is decoration over text that already reads well.</p>
+</div>
+
+<h2><span class="num">Section 5</span>Connecting M4 to the larger MRO platform</h2>
+
+<p>The prototype was built so that this is an integration exercise rather than a rewrite. One constraint carried the weight: <strong>nothing in <code>app/modules/m4/</code> imports FastAPI.</strong> The engine, the column resolver, the validator, the normalizer and the decision service are all plain Python over SQLAlchemy sessions. The HTTP routes are a thin skin over them.</p>
+
+<h3>Four integration seams, easiest first</h3>
+
+<p><strong>1 · Lift the module.</strong> Copy <code>app/modules/m4/</code> into the platform, point it at the platform's session factory, and call <code>ingest_csv</code>, <code>normalize_run</code>, <code>reconcile</code> and <code>record_decision</code> directly. No HTTP involved. This works today.</p>
+
+<p><strong>2 · Replace CSV ingestion with live data.</strong> Ingestion is the only part that assumes a file. Everything downstream operates on <code>staging_records</code> — rows of mapped JSON. A platform feed writing into that table gets the whole engine for free, because normalization and reconciliation never learn where the rows came from.</p>
+
+<p><strong>3 · Adopt the platform's canonical records.</strong> M4 currently scopes vendors, POs, GRNs and invoices to an ingestion run because it has no master data. Where the platform already owns those entities, the run-scoped tables become views onto the platform's, and the unique constraints move from <code>(ingestion_run_id, po_number)</code> to the platform's own identity. The reconciliation tables are unaffected — they reference line IDs, not the scoping.</p>
+
+<p><strong>4 · Federate the audit trail.</strong> <code>decision_log</code> is append-only with actor, timestamp, rule version and before/after status. It is shaped to merge into a platform-wide audit stream; swapping the <code>X-Actor</code> header for real identity is the only change required.</p>
+
+<div class="card teal">
+<span class="lbl">What M4 gives the wider platform</span>
+<p>Beyond closing invoices, M4 produces the verified trade record the rest of the OctoProc thesis depends on: a PO, a goods receipt and an invoice that have been checked against each other, with every exception explained and every closure attributable to a named decision. That artefact is what makes downstream supply-chain finance underwritable — a lender needs evidence that a real transaction happened, and this is the module that produces it.</p>
+</div>
+
+<footer>
+OctoProc M4 prototype · rules <code>m4-v0.1</code> · 57 tests passing · live at
+<a href="https://octo-snowy.vercel.app" style="color:var(--teal-dark)">octo-snowy.vercel.app</a> ·
+source at <a href="https://github.com/yashproddev/octo" style="color:var(--teal-dark)">github.com/yashproddev/octo</a>
+</footer>
+
+</div>
