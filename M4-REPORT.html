@@ -78,7 +78,7 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-
 
 <div class="stats">
   <div class="stat"><div class="v">10/10</div><div class="k">Build steps complete</div></div>
-  <div class="stat"><div class="v">57</div><div class="k">Tests passing</div></div>
+  <div class="stat"><div class="v">64</div><div class="k">Tests passing</div></div>
   <div class="stat"><div class="v">13</div><div class="k">Tables live on Neon</div></div>
   <div class="stat"><div class="v">7</div><div class="k">Reconciliation rules</div></div>
   <div class="stat"><div class="v">6</div><div class="k">Screens</div></div>
@@ -107,6 +107,11 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-
 <tr><td>Immutable audit trail</td><td><span class="pill ok">Working</span></td><td>Verified live: system verdict <code>MISMATCH</code> persists alongside human <code>AUTO_CLOSED</code></td></tr>
 <tr><td>Multiple independent runs</td><td><span class="pill ok">Working</span></td><td>Five reconciliation runs coexisting; same file uploaded twice never collides</td></tr>
 <tr><td>Six-screen management UI</td><td><span class="pill ok">Working</span></td><td>Every number from a live API call; no static data anywhere</td></tr>
+<tr><td>Financial exposure per line and per run</td><td><span class="pill ok">Working</span></td><td>Money at risk, not just a count of exceptions; under-billing shown separately from unvaluable lines</td></tr>
+<tr><td>Bulk decisions across a filtered queue</td><td><span class="pill ok">Working</span></td><td>Five mismatches approved in one call; each still writes its own audit row</td></tr>
+<tr><td>CSV export of results and the decision log</td><td><span class="pill ok">Working</span></td><td>Optionally filtered to one status; includes exposure and the full explanation</td></tr>
+<tr><td>Tolerance controls before reconciling</td><td><span class="pill ok">Working</span></td><td>Set on the mapping screen, frozen onto the run</td></tr>
+<tr><td>Sortable sticky table, review progress, queue navigation</td><td><span class="pill ok">Working</span></td><td>Sort by value at risk; walk exceptions without returning to the list</td></tr>
 <tr><td>Deployed and publicly shareable</td><td><span class="pill ok">Working</span></td><td>Vercel + Neon, SSO protection disabled</td></tr>
 </tbody>
 </table>
@@ -124,11 +129,19 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-
 <p><code>system_status</code> is written once by the engine and never updated. Human outcomes are <em>appended</em> to <code>decision_log</code>, and <code>current_status</code> is derived from the newest one. The machine's original judgment stays recoverable no matter how many times a person overturns it — the requirement is a structural property of the schema, not a convention someone has to remember.</p>
 </div>
 
+<div class="card teal">
+<span class="lbl">Value at risk</span>
+<p>The app now leads with money rather than counts. Exposure is what would be overpaid if the invoice were settled exactly as billed: the quantity genuinely received — never more than was ordered — at the agreed price, tax included. A duplicate puts its entire line value at risk, because it would be paid twice.</p>
+<p>Two distinctions matter more than the arithmetic. A line too incomplete to value reports <strong>nothing</strong> rather than zero, because zero is a claim that nothing is at stake. And a line billed <em>below</em> entitlement is shown as a credit in the reviewer's favour rather than collapsed into the same dash — under-billing is still a discrepancy, just not one that costs money.</p>
+</div>
+
 <h3>Judgment calls worth knowing about</h3>
 
 <p><strong>Duplicate detection keys on <code>(vendor, invoice_number, item)</code>.</strong> The same invoice number across different items is a normal multi-line invoice. Keying on invoice number alone would have flagged every multi-line invoice in a real file as a duplicate — false exceptions on day one, and a reviewer who stops trusting the tool.</p>
 
 <p><strong>A skipped check downgrades to REVIEW, never MATCHED.</strong> If the file carries no tax column, tax cannot be verified. Reporting that line as a clean match would quietly overstate assurance; “we could not check this” and “this is correct” are different claims.</p>
+
+<p><strong>Bulk actions batch the clicking, not the record.</strong> Applying one decision to fifty lines still writes fifty decision rows, each with its own before/after status. The audit trail is identical to deciding them one at a time — which is the point, since a batch that collapsed into a single entry would destroy the per-line traceability the whole schema exists to protect.</p>
 
 <p><strong>Money and quantities are <code>Numeric</code>, never <code>Float</code>.</strong> The engine compares values within tolerances, and binary floating point would manufacture variances that do not exist in the source data — phantom mismatches a human then has to adjudicate. There is a test pinning this.</p>
 
@@ -198,6 +211,7 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-
 <span class="lbl">Deliberate scope exclusions</span>
 <ul>
 <li><strong>No authentication.</strong> The acting user is an <code>X-Actor</code> header from a UI field, trivially spoofed. Adequate for a prototype, unacceptable for real audit.</li>
+<li><strong>Exposure assumes the configured tax rate</strong> when a line carries no tax column, so a zero-rated item would be valued as though tax applied.</li>
 <li><strong>No cross-run duplicate detection.</strong> The same invoice billed in two separate uploads is not flagged. The schema supports it; the rule does not yet.</li>
 <li><strong>No fuzzy matching.</strong> Vendor and item names are normalised for case, punctuation and whitespace only. “Acme Ltd” and “Acme Limited” are different vendors.</li>
 <li><strong>GRN references are synthesised.</strong> The CSV carries no GRN number, so one header is generated per PO per run.</li>
@@ -230,6 +244,7 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--rule);font-
 <tr><td>2</td><td>Background processing for large files</td><td>Lifts the 4.5 MB / 60-second ceiling</td></tr>
 <tr><td>3</td><td>Vendor/item identity resolution across runs</td><td>Turns run-scoped records into a real master, enabling vendor-level analytics</td></tr>
 <tr><td>3</td><td>Tolerance profiles per vendor or category</td><td>A 0.5% price tolerance is not right for every commodity</td></tr>
+<tr><td>3</td><td>Exposure trending across runs, and by vendor</td><td>The per-run total already exists; the question "which vendor costs us most" is one aggregation away</td></tr>
 <tr><td>3</td><td>Learned rule suggestions from decision history</td><td>The decision log is already the training signal; it accumulates from day one</td></tr>
 </tbody>
 </table>
