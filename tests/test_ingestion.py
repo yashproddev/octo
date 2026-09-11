@@ -207,3 +207,34 @@ class TestIngestion:
         assert outcome.run.row_count == 5
         assert outcome.run.error_row_count == 4
         assert outcome.run.valid_row_count == 1
+
+
+class TestNumericBounds:
+    """A value beyond Numeric(18,4) used to pass validation and then fail inside
+    Postgres during normalization, surfacing as an opaque 500. It must be caught
+    as an ordinary row error instead."""
+
+    def test_oversized_number_is_a_row_error_not_a_crash(self, db):
+        header = (
+            "po_number,vendor,item,po_quantity,grn_quantity,invoice_quantity,"
+            "po_unit_price,invoice_unit_price\n"
+        )
+        body = "PO-1,Acme,Bearing,999999999999999999,1,1,1,1\n"
+        outcome = ingest_csv(
+            db, content=(header + body).encode(), filename="huge.csv",
+            actor="tester", max_bytes=MAX,
+        )
+        assert outcome.run.error_row_count == 1
+        assert any("too large" in e.message for e in outcome.rows[0].errors)
+
+    def test_largest_storable_value_is_still_accepted(self, db):
+        header = (
+            "po_number,vendor,item,po_quantity,grn_quantity,invoice_quantity,"
+            "po_unit_price,invoice_unit_price\n"
+        )
+        body = "PO-1,Acme,Bearing,99999999999999.9999,1,1,1,1\n"
+        outcome = ingest_csv(
+            db, content=(header + body).encode(), filename="edge.csv",
+            actor="tester", max_bytes=MAX,
+        )
+        assert outcome.run.error_row_count == 0

@@ -20,6 +20,12 @@ _NUMERIC_NOISE = re.compile(r"[,\s₹$€£]")
 # Trailing negative, as some ERP exports emit "1200-" rather than "-1200".
 _TRAILING_MINUS = re.compile(r"^(\d+(?:\.\d+)?)-$")
 
+# Canonical quantity/money columns are Numeric(18,4): fourteen digits before the
+# decimal point. A larger value parses happily in Python and only fails when
+# Postgres rejects it during normalization, which surfaces as an opaque 500
+# instead of a row error. Bound it here so it is reported like any other bad cell.
+MAX_NUMERIC = Decimal("99999999999999.9999")
+
 _DATE_FORMATS = (
     "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
     "%Y/%m/%d", "%d %b %Y", "%d %B %Y", "%b %d %Y", "%d-%b-%Y", "%d-%b-%y",
@@ -184,6 +190,13 @@ def validate_rows(frame: pd.DataFrame, mapping: MappingResult) -> list[ParsedRow
                         f"{spec.label} is negative ({number}). Quantities and prices must be zero or above.",
                     ))
                     mapped[field_name] = str(number)
+                elif abs(number) > MAX_NUMERIC:
+                    errors.append(RowError(
+                        row_number, field_name, match.source_column, raw_value,
+                        f"{spec.label} is {raw_value}, which is too large to store. "
+                        f"The maximum is {MAX_NUMERIC:,.4f}.",
+                    ))
+                    mapped[field_name] = None
                 else:
                     mapped[field_name] = str(number)
 
